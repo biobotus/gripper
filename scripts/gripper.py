@@ -101,16 +101,23 @@ class Gripper:
 
 
     def callback_pos(self, data):
-        angle_dict = ast.literal_eval(data.data)
+        try:
+            angle_dict = ast.literal_eval(data.data)
+        except SyntaxError as e:
+            print("Gripper_Pos syntax error in: {0}".format(data.data))
+            return
 
         try:
             assert type(angle_dict) == dict
+            if angle_dict and type(angle_dict.keys()[0]) == str:
+                angle_dict = dict([(int(k), v) for k, v in angle_dict.items()])
+
             for ID in angle_dict:
                 assert type(ID) == int
                 assert isinstance(angle_dict[ID], numbers.Real)
                 assert abs(angle_dict[ID]) < 150
 
-        except AssertionError:
+        except (AssertionError, ValueError):
             print("Invalid value recieved.")
             # self.error.publish(blablabla)
             return

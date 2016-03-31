@@ -39,8 +39,7 @@ class HMIGripper():
                     angle_dict[ID] = float(pos[ID])
                     if abs(angle_dict[ID])> 150:
                         raise ValueError("Input angle out of limits")
-                    
-                    
+
             self.gripper_pos.publish(str(angle_dict))
 
             while not self.done:
