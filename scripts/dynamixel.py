@@ -177,12 +177,13 @@ class ComAX12a:
         return ~(message)&0xFF
 
     def read_data(self, ID, size):
+        self.port.flushInput()
         # size: number of bytes expected
         valid_reply = False;
         self.com_direction(self.RPI_DIRECTION_RX)
         in_data_str = self.port.read(size)
         message = 0
-        #print([ord(i) for i in in_data_str])
+        # print([ord(i) for i in in_data_str])
 
         # Validate Checksum
         if len(in_data_str) != size:
@@ -197,11 +198,12 @@ class ComAX12a:
             valid_reply = True
         else:
             print("Received bad checksum")
+            return False, None
 
         # Look for error
-        if  ord(in_data_str[4]) != 0:
-            error = ord(in_data_str[4])
-            #print([ord(i) for i in in_data_str])
+        error = ord(in_data_str[4])
+        if  error != 0:
+            # print([ord(i) for i in in_data_str])
             if error & 0x40:
                 print("ERROR: Instruction")
                 valid_reply = False
@@ -245,6 +247,7 @@ class ComAX12a:
         check = self.checksum(ID + self.READ_DATA + self.PING)
         out_data = format_message([self.START, self.START, ID, self.READ_DATA, \
                                    self.PING, check])
+        # print([ord(i) for i in out_data])
 
         # Transmit data
         self.write_data(out_data)
