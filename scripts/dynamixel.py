@@ -2,8 +2,8 @@
 import serial
 import time
 
-""" 
-Code highly inspired from the work of Jesse Merritt and memememe
+"""
+Code highly inspired from the work of Jesse Merritt and Thiago Hersan
 https://github.com/jes1510/python_dynamixels/blob/master/ax.py
 https://github.com/thiagohersan/memememe/blob/master/Python/ax12/ax12.py
 
@@ -152,7 +152,7 @@ class ComAX12a:
     # RPI constants------------------------------------------------------
     #--------------------------------------------------------------------
     TIMEOUT_DELAY = .01
-    
+
     #-----------------------------------------------------------------------
     #-------------------------------Methods-------------------------------
     #-----------------------------------------------------------------------
@@ -175,14 +175,14 @@ class ComAX12a:
     def read_data(self, ID, rx_size, out_data):
         """Validate and return data in RX buffer."""
         valid_reply = False;
-        Msg_len = len(out_data)
-        
+        msg_len = len(out_data)
+
         #Read data in in_buffer
-        in_data_str_buf = self.port.read(Msg_len + rx_size)
-        
+        in_data_str_buf = self.port.read(msg_len + rx_size)
+
         #Isolate the reception message
-        in_data_str = in_data_str_buf[Msg_len:];
-        
+        in_data_str = in_data_str_buf[msg_len:];
+
         message = 0 #Initialize the RX message
         #print("Received message: {0}".format([ord(i) for i in in_data_str]))
 
@@ -239,7 +239,7 @@ class ComAX12a:
 
     def ping(self, ID):
         """Send ping to a target ID."""
-        
+
         check = self.checksum(ID + self.READ_DATA + self.PING)
         out_data = format_message([self.START, self.START, ID, self.READ_DATA, \
                                    self.PING, check])
@@ -333,9 +333,9 @@ class ComAX12a:
         return valid_reply
 
     def set_max_torque(self, ID, torque_percent):
-        """Set the maximum torque limit for a target ID in EEPROM 
+        """Set the maximum torque limit for a target ID in EEPROM
         (value between 0 and 1)."""
-        
+
         # Validate torque value (between 0 and 1)
         if torque_percent > 1 or torque_percent < 0:
             return False
@@ -364,9 +364,9 @@ class ComAX12a:
         return valid_reply
 
     def set_torque_limit(self, ID, torque_percent):
-        """Set the torque limit for a target ID in RAM 
+        """Set the torque limit for a target ID in RAM
         (value between 0 and 1)."""
-        
+
         # Validate torque value (between 0 and 1)
         if torque_percent > 1 or torque_percent < 0:
             return False
@@ -435,7 +435,7 @@ class ComAX12a:
 
     def set_baudrate(self, ID, baudrate):
         """Set new baudrate to target ID."""
-        
+
         br = int((2000000./baudrate)-1)&0xff
         check = self.checksum(ID + self.BD_LENGTH +self.WRITE_DATA +
                               self.BAUD_RATE + br)
@@ -469,7 +469,7 @@ class ComAX12a:
 
     def set_temp_limit(self, ID, temp):
         """Set maximum temperature limit of a target ID."""
-        
+
         t = int(temp)&0xff
         if t > 150:
             t = 150
@@ -492,7 +492,7 @@ class ComAX12a:
 #--------------------------Action functions-----------------------------
     def set_goal_position(self, ID, position):
         """Set goal position of target ID (Position in degree)."""
-        
+
         # Translate degree position into command format
         position = int(round(position*(1024./300)+ 511))&0x3ff
         p = [position&0xff, position>>8]
@@ -519,7 +519,7 @@ class ComAX12a:
     def set_goal_pos_speed(self, ID, pos_deg, speed_rpm):
         """Set goal position of target ID with a moving speed
         (Position in degree and speed in rpm)."""
-    
+
         # Translate degree position into command format
         position = int(round(pos_deg*(1024./300)+ 511))&0x3ff
         p = [position&0xff, position>>8]
@@ -551,9 +551,9 @@ class ComAX12a:
 
     #----------------------Register reading functions-----------------------
     def read_temperature(self, ID):
-        """Return the value of temperature from a target ID 
-        (Value in degree celsius)."""
-        
+        """Return the value of temperature from a target ID
+        (Value in degree Celsius)."""
+
         check = self.checksum(ID + self.TEM_LENGTH + self.READ_DATA + \
                               self.PRESENT_TEMPERATURE + self.BYTE_READ)
         out_data = format_message([self.START, self.START, ID, \
@@ -573,7 +573,7 @@ class ComAX12a:
     def read_load(self, ID):
         """Return the value of load from a target ID
         (Value in percentage)."""
-        
+
         check = self.checksum(ID + self.LOAD_LENGTH + self.READ_DATA + \
                               self.PRESENT_LOAD_L + self.INT_READ)
 
@@ -643,7 +643,7 @@ class ComAX12a:
 
     def is_register_lock(self, ID):
         """Return True if register of target ID is locked."""
-        
+
         # Return true if register of target ID is lock
         check = self.checksum(ID + self.LR_LENGTH + self.READ_DATA + \
                               self.LOCK + self.BYTE_READ)
@@ -664,8 +664,8 @@ class ComAX12a:
 
     def read_voltage(self, ID):
         """Return the value of the input voltage from a target ID
-        (Value in degree celsius)."""
-    
+        (Value in volts)."""
+
         check = self.checksum(ID + self.VOLT_LENGTH + self.READ_DATA + \
                               self.PRESENT_VOLTAGE + self.BYTE_READ)
 

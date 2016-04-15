@@ -9,7 +9,7 @@ class Gripper:
     def __init__(self):
         # ROS init
         self.node_name = self.__class__.__name__
-        rospy.init_node(self.node_name, anonymous=True, log_level=rospy.DEBUG)
+        rospy.init_node(self.node_name, anonymous=True, log_level=rospy.INFO)
         self.rate = rospy.Rate(10)  # 10 Hz
 
         # ROS subscriptions
