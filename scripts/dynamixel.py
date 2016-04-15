@@ -1,7 +1,17 @@
 #!/usr/bin/python
 import serial
-import pigpio
 import time
+
+""" 
+Code highly inspired from the work of Jesse Merritt and memememe
+https://github.com/jes1510/python_dynamixels/blob/master/ax.py
+https://github.com/thiagohersan/memememe/blob/master/Python/ax12/ax12.py
+
+April 15, 2016
+"""
+
+
+
 
 def format_message(arg_list):
     """Returns a string of chars for each arg in the list."""
@@ -137,59 +147,50 @@ class ComAX12a:
     CCW_AL_H = 3
     LOCK_VALUE = 1
 
-    LEFT = 0
-    RIGHT = 1
-
-    RX_TIME_OUT = 10
-    TX_DELAY_TIME = 0.00002
 
     #--------------------------------------------------------------------
     # RPI constants------------------------------------------------------
     #--------------------------------------------------------------------
-    RPI_DIRECTION_TX = pigpio.HIGH
-    RPI_DIRECTION_RX = pigpio.LOW
-    RPI_DIRECTION_SWITCH_DELAY = 0.0001
-    QUERY_DELAY = .01
-
+    TIMEOUT_DELAY = .01
+    
     #-----------------------------------------------------------------------
     #-------------------------------Methods-------------------------------
     #-----------------------------------------------------------------------
 
     #---------------------------General methods---------------------------
-    def __init__(self, baudrate, dir_pin):
+    def __init__(self, baudrate):
+        """Class constructor. Initialize the communication port."""
         self.baudrate = baudrate
-        self.dir_pin = dir_pin
         self.byte_delay = 1/(baudrate*10)
 
-        # Handle for PIGPIO
-        self.gpio = pigpio.pi()
-        self.gpio.set_mode(dir_pin, pigpio.OUTPUT)
 
         # Handle fo Serial communication
         self.port = serial.Serial("/dev/ttyAMA0", baudrate=self.baudrate,\
-                                  timeout=self.QUERY_DELAY)
-
-    def com_direction(self, write_read):
-        self.gpio.write(self.dir_pin, write_read)
+                                  timeout=self.TIMEOUT_DELAY)
 
     def checksum(self, message):
-        # Return checksum of message
+        """Return checksum of message."""
         return ~(message)&0xFF
 
-    def read_data(self, ID, size):
-        self.port.flushInput()
-        # size: number of bytes expected
+    def read_data(self, ID, rx_size, out_data):
+        """Validate and return data in RX buffer."""
         valid_reply = False;
-        self.com_direction(self.RPI_DIRECTION_RX)
-        in_data_str = self.port.read(size)
-        message = 0
-        # print([ord(i) for i in in_data_str])
+        Msg_len = len(out_data)
+        
+        #Read data in in_buffer
+        in_data_str_buf = self.port.read(Msg_len + rx_size)
+        
+        #Isolate the reception message
+        in_data_str = in_data_str_buf[Msg_len:];
+        
+        message = 0 #Initialize the RX message
+        #print("Received message: {0}".format([ord(i) for i in in_data_str]))
 
         # Validate Checksum
-        if len(in_data_str) != size:
+        if len(in_data_str) != rx_size:
             return valid_reply, None
 
-        for i in range(size)[2:-1]:
+        for i in range(rx_size)[2:-1]:
             message += ord(in_data_str[i])
 
         check = self.checksum(message)
@@ -232,35 +233,30 @@ class ComAX12a:
         return valid_reply, in_data_str
 
     def write_data(self, message):
+        """Write data to the serial port."""
         self.port.flushInput()
-        time.sleep(self.RPI_DIRECTION_SWITCH_DELAY)
-        self.com_direction(self.RPI_DIRECTION_TX)
-        time.sleep(self.RPI_DIRECTION_SWITCH_DELAY)
         self.port.write(message)
 
-        time.sleep(self.RPI_DIRECTION_SWITCH_DELAY)
-        # Wait the appropriate time
-        time.sleep(len(message)*self.byte_delay)
-
     def ping(self, ID):
-        # Send Ping
+        """Send ping to a target ID."""
+        
         check = self.checksum(ID + self.READ_DATA + self.PING)
         out_data = format_message([self.START, self.START, ID, self.READ_DATA, \
                                    self.PING, check])
-        # print([ord(i) for i in out_data])
 
         # Transmit data
         self.write_data(out_data)
 
         # Read received data
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
 
-    def servo_census(self, min_id=0, max_id=6):
+    def servo_census(self, min_id=0, max_id=10):
+        """Return ID list of connected servomotors."""
         return [i for i in range(min_id, max_id+1) if self.ping(i)]
 
     def factory_reset(self, ID, confirm = False):
-        # Reset register to factory settings
+        """Reset register to factory settings."""
         if(confirm):
             check = self.checksum(ID + self.RESET_LENGTH + self.RESET)
 
@@ -271,13 +267,15 @@ class ComAX12a:
             self.write_data(out_data)
 
             # Read received data
-            valid_reply, _ = self.read_data(ID,6)
+            valid_reply, _ = self.read_data(ID,6, out_data)
             return valid_reply
         else:
             return False
 
+
 #-----------------------Register setting functions----------------------
     def set_status_return_level(self, ID, level):
+        """Set the return status level."""
         check = self.checksum(ID + self.SRL_LENGTH + self.WRITE_DATA + \
                               self.RETURN_LEVEL + level)
 
@@ -288,10 +286,11 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_return_delay_time(self, ID, delay):
+        """Set the return delay time (0x00 to 0xff)."""
         delay = (delay)&0xff
         check = self.checksum(ID + self.RDT_LENGTH + self.WRITE_DATA + \
                               self.RETURN_DELAY_TIME + delay)
@@ -303,10 +302,11 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_angle_limit(self, ID, cw_limit, ccw_limit):
+        """Set the angles limit for a target ID (limit in degree)."""
         # Degree to hex angle
         cw_limit = int(round(cw_limit*(1024./300)+ 1024./2))
         ccw_limit = int(round(ccw_limit*(1024./300)+ 1024./2))
@@ -329,12 +329,14 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_max_torque(self, ID, torque_percent):
+        """Set the maximum torque limit for a target ID in EEPROM 
+        (value between 0 and 1)."""
+        
         # Validate torque value (between 0 and 1)
-        # Writes in EEPROM
         if torque_percent > 1 or torque_percent < 0:
             return False
 
@@ -358,12 +360,14 @@ class ComAX12a:
             return True
 
         # Validate return packet
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_torque_limit(self, ID, torque_percent):
+        """Set the torque limit for a target ID in RAM 
+        (value between 0 and 1)."""
+        
         # Validate torque value (between 0 and 1)
-        # Writes in RAM
         if torque_percent > 1 or torque_percent < 0:
             return False
 
@@ -387,11 +391,11 @@ class ComAX12a:
             return True
 
         # Validate return packet
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_id(self, ID, new_id):
-        # Set new ID
+        """Set new ID to a target ID."""
         check = self.checksum(ID + self.ID_LENGTH +self.WRITE_DATA + \
                               self.ID_ADDR + new_id)
 
@@ -403,10 +407,11 @@ class ComAX12a:
         self.write_data(out_data)
 
         # Read received data
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_punch_limit(self, ID, punch):
+        """Set punch limit to target ID"""
         p = [punch&0xff, punch>>8]
 
         # Construct message to output
@@ -425,11 +430,12 @@ class ComAX12a:
             return True
 
         # Validate return packet
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_baudrate(self, ID, baudrate):
-        # Set new baudrate to target ID
+        """Set new baudrate to target ID."""
+        
         br = int((2000000./baudrate)-1)&0xff
         check = self.checksum(ID + self.BD_LENGTH +self.WRITE_DATA +
                               self.BAUD_RATE + br)
@@ -442,28 +448,28 @@ class ComAX12a:
         self.write_data(out_data)
 
         # Read received data
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def lock_register(self, ID):
-         # Lock register of target ID
-
+        """Lock register of target ID."""
         check = self.checksum(ID + self.LR_LENGTH +self.WRITE_DATA + \
                               self.LOCK + self.LOCK_VALUE)
 
         out_data = format_message([self.START, self.START, ID, \
-                                   self.LR_LENGTH, self.WRITE_DATA, \
-                                   self.LOCK, self.LOCK_VALUE, check])
+                               self.LR_LENGTH, self.WRITE_DATA, \
+                               self.LOCK, self.LOCK_VALUE, check])
 
         # Transmit data
         self.write_data(out_data)
 
         # Read received data
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_temp_limit(self, ID, temp):
-        # Set maximum temperature value
+        """Set maximum temperature limit of a target ID."""
+        
         t = int(temp)&0xff
         if t > 150:
             t = 150
@@ -479,11 +485,14 @@ class ComAX12a:
         self.write_data(out_data)
 
         # Read received data
-        valid_reply, _ = self.read_data(ID, 6)
+        valid_reply, _ = self.read_data(ID, 6, out_data)
         return valid_reply
+
 
 #--------------------------Action functions-----------------------------
     def set_goal_position(self, ID, position):
+        """Set goal position of target ID (Position in degree)."""
+        
         # Translate degree position into command format
         position = int(round(position*(1024./300)+ 511))&0x3ff
         p = [position&0xff, position>>8]
@@ -504,10 +513,13 @@ class ComAX12a:
             return True
 
         # Validate return packet
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
     def set_goal_pos_speed(self, ID, pos_deg, speed_rpm):
+        """Set goal position of target ID with a moving speed
+        (Position in degree and speed in rpm)."""
+    
         # Translate degree position into command format
         position = int(round(pos_deg*(1024./300)+ 511))&0x3ff
         p = [position&0xff, position>>8]
@@ -533,12 +545,15 @@ class ComAX12a:
             return True
 
         # Validate return packet
-        valid_reply, data = self.read_data(ID, 6)
+        valid_reply, data = self.read_data(ID, 6, out_data)
         return valid_reply
 
 
     #----------------------Register reading functions-----------------------
     def read_temperature(self, ID):
+        """Return the value of temperature from a target ID 
+        (Value in degree celsius)."""
+        
         check = self.checksum(ID + self.TEM_LENGTH + self.READ_DATA + \
                               self.PRESENT_TEMPERATURE + self.BYTE_READ)
         out_data = format_message([self.START, self.START, ID, \
@@ -549,13 +564,16 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 7)
+        valid_reply, data = self.read_data(ID, 7, out_data)
         if valid_reply:
             return ord(data[5])
         else:
             return None
 
     def read_load(self, ID):
+        """Return the value of load from a target ID
+        (Value in percentage)."""
+        
         check = self.checksum(ID + self.LOAD_LENGTH + self.READ_DATA + \
                               self.PRESENT_LOAD_L + self.INT_READ)
 
@@ -565,7 +583,7 @@ class ComAX12a:
 
         # Transmit data
         self.write_data(out_data)
-        valid_reply, data = self.read_data(ID, 8)
+        valid_reply, data = self.read_data(ID, 8, out_data)
         if valid_reply:
             raw_load = (ord(data[6]))*256+ (ord(data[5]))
 
@@ -581,6 +599,8 @@ class ComAX12a:
             return None
 
     def read_position(self, ID):
+        """Return the value of the position from a target ID
+        (Value in degree)."""
         check = self.checksum(ID + self.POS_LENGTH  + self.READ_DATA + \
                               self.PRESENT_POSITION_L  + self.INT_READ)
 
@@ -592,16 +612,17 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 8)
+        valid_reply, data = self.read_data(ID, 8, out_data)
 
         if valid_reply:
             raw_pos = (ord(data[6]))*256+ (ord(data[5]))
             pos = (raw_pos - 511)*300./1024.
             return pos  # in degrees
         else:
-            return -0xfff # Error
+            return 0xfff # Error
 
     def read_moving_status(self, ID):
+        """Return True if target ID is movieng."""
 
         check = self.checksum(ID + self.MOVING_LENGTH   + self.READ_DATA + \
                               self.MOVING   + self.BYTE_READ)
@@ -613,7 +634,7 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 7)
+        valid_reply, data = self.read_data(ID, 7, out_data)
 
         if valid_reply:
             return bool(ord(data[-2]))
@@ -621,6 +642,8 @@ class ComAX12a:
             return None
 
     def is_register_lock(self, ID):
+        """Return True if register of target ID is locked."""
+        
         # Return true if register of target ID is lock
         check = self.checksum(ID + self.LR_LENGTH + self.READ_DATA + \
                               self.LOCK + self.BYTE_READ)
@@ -632,7 +655,7 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 7)
+        valid_reply, data = self.read_data(ID, 7, out_data)
 
         if valid_reply:
             return bool(ord(data[-2]))
@@ -640,6 +663,9 @@ class ComAX12a:
             return None
 
     def read_voltage(self, ID):
+        """Return the value of the input voltage from a target ID
+        (Value in degree celsius)."""
+    
         check = self.checksum(ID + self.VOLT_LENGTH + self.READ_DATA + \
                               self.PRESENT_VOLTAGE + self.BYTE_READ)
 
@@ -650,7 +676,7 @@ class ComAX12a:
         # Transmit data
         self.write_data(out_data)
 
-        valid_reply, data = self.read_data(ID, 7)
+        valid_reply, data = self.read_data(ID, 7, out_data)
 
         if valid_reply:
             return ord(data[-2])/10.
@@ -659,47 +685,15 @@ class ComAX12a:
 
 
 if __name__ == "__main__":
-
-    motor = ComAX12a(1000000, 18)
-    # Set proper return delay_time (max =254)
-    #motor.set_return_delay_time(254, 254)
-    # Set proper returne respond level
-    #motor.set_status_return_level(254,motor.RETURN_ALL)
-
-    # Reset limit angles
-    #motor.set_angle_limit(254, -150, 150)
-
-    print("Start")
-    print("")
-
-    #Census servo ID
-    print("Servo ID: {0}".format(motor.servo_census()))
-    # print(motor.factory_reset(2,confirm = True))
-    # time.sleep(1)
-    # print("Servo ID: {0}".format(motor.servo_census()))
-    #Set proper punch limit
-    #print(motor.set_punch_limit(2,50))
-    #Set proper torque values
-    #print(motor.set_max_torque(motor.BROADCAST_ID,.80))
-    #print(motor.set_torque_limit(motor.BROADCAST_ID,.80))
-
-    # Move motors
-    print(motor.set_goal_pos_speed(254, 0, 10,))
-    print(motor.set_goal_pos_speed_blk(2, 0, 10, 2, 1000))
-    print(motor.set_goal_pos_speed_blk(2, -90, 10, 3, 1000))
-    motor.set_goal_pos_speed(3, 55, 25)
-    motor.set_goal_pos_speed(4, 55, 25)
-    print(motor.set_goal_pos_speed(2, -90, 2))
-
-    #time.sleep(1)
-    #print(motor.set_goal_pos_speed(2, -90, 10))
-    #time.sleep(2)
-    #print(motor.set_goal_pos_speed(3, 55, 10))
-    #print(motor.set_goal_pos_speed(4, 55, 10))
-
-    # while True:
-        # # # print(motor.read_load(2))
-        # print("Pos: {0} deg,  Torque: {1}, temp: {2} C".format(motor.read_position(2),motor.read_load(2),motor.read_temperature(2)))
-        # print("")
-        # time.sleep(.5)
+    """Main for debugging"""
+    motor = ComAX12a(500000)
+    import time
+    while True:
+        time.sleep(1)
+        motor.set_goal_pos_speed(0, 0, 5)
+        time.sleep(1)
+        motor.set_goal_pos_speed(0,10 , 5)
+        time.sleep(1)
+        #Census servo ID
+        print("Servo ID: {0}".format(motor.servo_census()))
 

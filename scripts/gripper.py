@@ -9,7 +9,7 @@ class Gripper:
     def __init__(self):
         # ROS init
         self.node_name = self.__class__.__name__
-        rospy.init_node(self.node_name, anonymous=True, log_level=rospy.INFO)
+        rospy.init_node(self.node_name, anonymous=True, log_level=rospy.DEBUG)
         self.rate = rospy.Rate(10)  # 10 Hz
 
         # ROS subscriptions
@@ -21,14 +21,13 @@ class Gripper:
 
         # Motors init
         self.baud_rate = 500000
-        self.dir_pin = 18  # pin 12
         # Uses UART pins 8 (TXD) and 10 (RXD)
         self.nb_motors = 3
         self.motor_IDs = range(self.nb_motors)
         self.motor_limit_l = [-91, -1, -1]
         self.motor_limit_h = [91, 63, 63]
         self.default_speed = {0: 10, 1: 10, 2: 10}
-        self.motor = dynamixel.ComAX12a(self.baud_rate, self.dir_pin)
+        self.motor = dynamixel.ComAX12a(self.baud_rate)
         assert self.try_x_times(5, self.init_motors)
 
     def init_motors(self):
