@@ -1,0 +1,27 @@
+wrist_controller:
+    controller:
+        package: dynamixel_controllers
+        module: joint_position_controller
+        type: JointPositionController
+    joint_name: wrist_joint
+    joint_speed: 10
+    motor:
+        id: 0
+        init: 0
+        min: 205
+        max: 819
+
+dual_grip_controller:
+    controller:
+        package: dynamixel_controllers
+        module: joint_position_controller_dual_motor
+        type: JointPositionControllerDual
+    joint_name: grip_joints
+    joint_speed: 10
+    motor_master:
+        id: 1
+        init: 0
+        min: 512
+        max: 727
+    motor_slave:
+        id: 2
