@@ -1,9 +1,11 @@
 # Compiled source
 *.pyc
 *.pyo
+*/include/*
 
 # Backups and logs
 *.save*
 *.bak
 *.log
 */old/*
+*~

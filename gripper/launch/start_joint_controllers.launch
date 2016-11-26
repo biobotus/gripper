@@ -1,15 +1,15 @@
 <launch>
     <!-- Start dual_motor joint controller -->
-    <rosparam file="$(find ros_gripper)/config/joint_params.yaml" command="load"/>
+    <rosparam file="$(find gripper)/config/joint_params.yaml" command="load"/>
     <node name="wrist_controller_spawner" pkg="dynamixel_controllers" type="controller_spawner.py"
           args="--manager=dxl_manager
-                --port ttlUSB0_port
-                wrist_controller"
+                --port ttyUSB0_port
+                Wrist_Joint_Controller"
           output="screen"/>
 
     <node name="dual_grip_controller_spawner" pkg="dynamixel_controllers" type="controller_spawner.py"
           args="--manager=dxl_manager
-                --port ttlUSB0_port
-                dual_grip_controller"
+                --port ttyUSB0_port
+                Grip_Joints_Controller"
           output="screen"/>
 </launch>

@@ -1,11 +1,11 @@
 <!-- -*- mode: XML -*- -->
 
 <launch>
-    <node name="dynamixel_manager" pkg="dynamixel_controllers" type="controller_manager.py" required="true" output="screen">
+    <node name="controller_manager" pkg="dynamixel_controllers" type="controller_manager.py" required="true" output="screen">
         <rosparam>
             namespace: dxl_manager
             serial_ports:
-                ttlUSB0_port:
+                ttyUSB0_port:
                     port_name: "/dev/ttyUSB0"
                     baud_rate: 500000
                     min_motor_id: 0

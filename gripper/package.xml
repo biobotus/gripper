@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>ros_gripper</name>
-  <version>0.0.0</version>
-  <description>The ros_gripper package</description>
+  <name>gripper</name>
+  <version>1.0.0</version>
+  <description>The gripper package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/ros_gripper</url> -->
+  <!-- <url type="website">http://wiki.ros.org/gripper</url> -->
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
@@ -41,7 +41,6 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>dynamixel_controllers</build_depend>
-  <build_depend>message_generation</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
