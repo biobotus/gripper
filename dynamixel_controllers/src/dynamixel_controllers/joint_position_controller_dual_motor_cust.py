@@ -211,12 +211,15 @@ class JointPositionControllerDualCust(JointController):
         elif mcv_slave[1] > self.MAX_POSITION: mcv_slave[1] = self.MAX_POSITION
         self.dxl_io.set_multi_position([mcv_master, mcv_slave])
 
-        # Wait for the next motor_state publishment before continuig
+        # Wait for the next motor_state publishment before continuing
         time_stamp = self.joint_state.header.stamp.to_nsec()
         new_time_stamp = time_stamp
         while time_stamp == new_time_stamp:
             new_time_stamp = self.joint_state.header.stamp.to_nsec()
             #self.rate.sleep()
+        if abs(self.joint_state.goal_pos - angle) >= 0.006:
+            print(self.joint_state.goal_pos)
+            self.dxl_io.set_multi_position([mcv_master, mcv_slave])
 
         # Wait for motor to reach its goal
         while not done:
